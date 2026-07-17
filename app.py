@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 from agents import build_reader_agent, build_search_agent, writer_chain, critic_chain
-
+from langchain_core.messages import HumanMessage
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ResearchMind · AI Research Agent",
@@ -412,8 +412,7 @@ if st.session_state.running and not st.session_state.done:
     with st.spinner("🔍  Search Agent is working…"):
         search_agent = build_search_agent()
         sr = search_agent.invoke({
-            "messages": [("user", f"Find recent, reliable and detailed information about: {topic_val}")]
-        })
+            "messages": [("user", f"Find recent, reliable and detailed information about: {topic_val}")]})
         results["search"] = sr["messages"][-1].content
         st.session_state.results = dict(results)
     st.rerun() if False else None   # keep inline for now
@@ -422,12 +421,17 @@ if st.session_state.running and not st.session_state.done:
     with st.spinner("📄  Reader Agent is scraping top resources…"):
         reader_agent = build_reader_agent()
         rr = reader_agent.invoke({
-            "messages": [("user",
-                f"Based on the following search results about '{topic_val}', "
-                f"pick the most relevant URL and scrape it for deeper content.\n\n"
-                f"Search Results:\n{results['search'][:800]}"
-            )]
-        })
+    "messages": [
+        HumanMessage(
+            content=f"""Based on the following search results about '{topic_val}',
+pick the most relevant URL and scrape it for deeper content.
+
+Search Results:
+{results['search'][:800]}
+"""
+        )
+    ]
+})
         results["reader"] = rr["messages"][-1].content
         st.session_state.results = dict(results)
 
