@@ -2,6 +2,7 @@ from langchain.tools import tool
 import requests
 from bs4 import BeautifulSoup
 from tavily import TavilyClient
+from tavily.errors import InvalidAPIKeyError
 import os 
 from dotenv import load_dotenv
 from rich import print
@@ -12,7 +13,12 @@ tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 @tool
 def web_search(query : str) -> str:
     """Search the web for recent and reliable information on a topic . Returns Titles , URLs and snippets."""
-    results = tavily.search(query=query,max_results=5)
+    try:
+        results = tavily.search(query=query,max_results=5)
+    except InvalidAPIKeyError as error:
+        raise RuntimeError(
+            "Tavily rejected TAVILY_API_KEY. Replace it with a valid key from your Tavily account."
+        ) from error
 
     out = []
 

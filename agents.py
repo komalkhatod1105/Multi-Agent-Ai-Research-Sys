@@ -8,17 +8,22 @@ import os
 
 load_dotenv()
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
-    api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0,
-)
+def get_llm():
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Set GEMINI_API_KEY (or GOOGLE_API_KEY) in your environment to run research."
+        )
+    return ChatGoogleGenerativeAI(
+        model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
+        api_key=api_key,
+    )
 
 
 #1st agent 
 def build_search_agent():
     return create_agent(
-        model = llm,
+        model = get_llm(),
         tools= [web_search]
     )
 
@@ -26,12 +31,10 @@ def build_search_agent():
 
 def build_reader_agent():
     return create_agent(
-        model = llm,
+        model = get_llm(),
         tools = [scrape_url]
     )
 
-
-#writer chain 
 
 writer_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are an expert research writer. Write clear, structured and insightful reports."),
@@ -50,10 +53,6 @@ Structure the report as:
 
 Be detailed, factual and professional."""),
 ])
-
-writer_chain = writer_prompt | llm | StrOutputParser()
-
-#critic_chain 
 
 critic_prompt = ChatPromptTemplate.from_messages([
      ("system", "You are a sharp and constructive research critic. Be honest and specific."),
@@ -78,4 +77,13 @@ One line verdict:
 ..."""),
 ])
 
-critic_chain = critic_prompt | llm | StrOutputParser()
+class LazyChain:
+    def __init__(self, prompt):
+        self.prompt = prompt
+
+    def invoke(self, inputs):
+        return (self.prompt | get_llm() | StrOutputParser()).invoke(inputs)
+
+
+writer_chain = LazyChain(writer_prompt)
+critic_chain = LazyChain(critic_prompt)
